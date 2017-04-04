@@ -2,6 +2,9 @@
   "name": "math-socket-io",
   "version": "1.0.0",
   "description": "Math game that uses socket.io",
+  "engines": {
+    "node": "7.7.1"
+  },
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
