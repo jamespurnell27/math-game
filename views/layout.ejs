@@ -1,0 +1,220 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<link rel="stylesheet" type="text/css" href="css/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.3.0/vue.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<title>Layout</title>
+</head>
+
+<body>
+	<div id="vue-app">
+
+		<header>
+		  <div class="inline col-20" id="h-logo"></div>
+
+		  <div class="inline col-60" id="h-current-user">
+		    <form id="f-user-name">
+		      <input name='user' id="user-name" placeholder="insert name"/>
+		    </form>
+		  </div>
+
+		  <div class="inline col-20" id="h-sign-in"></div>
+		</header>
+
+		<section v-show="registered == false">
+			<h1 style="text-align:center; padding-top:90px">Please input your username</h1>
+		</section>
+
+		<section v-show="registered">
+
+		  <!--  DROP AND DRAG FEATURES   -->
+
+			<chat-features></chat-features>
+
+
+			<chat-area v-bind:msgs="msgs" v-bind:username="username" ></chat-area>
+
+
+
+		  <!--  CURRENT CONVERSATIONS   -->
+
+		  <div class="full-height inline col-15" id="conversations">
+		    <div class="counter-header-height">
+          <a v-for="name in names" onclick="changeConvo(this)">
+              {{name}}
+          </a>
+		    </div>
+		  </div>
+
+
+
+		  <!--  CONTACT LIST   -->
+
+		  <div class="full-height inline col-15" id="contacts">
+		    <div class="counter-header-height">
+		      <ul id="contacts-list" class="center-text" ></ul>
+		    </div>
+		  </div>
+		</section>
+
+	</div>
+
+
+
+	<!-- /////////////////
+		 CHAT AREA TEMPLATE
+		 ////////////////// -->
+
+	<template id="hey">
+		<div class="full-height inline col-50" id="chat-box">
+			<div id="chat-box__content">
+				<div class="counter-header-height">
+					<div v-for="msg in msgs">
+						<div v-bind:class="[whoSent(msg.sender) ? 'rightMsg' : 'leftMsg']">
+							<span>{{ msg.sender }} says: {{msg.theMsg}}</span>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<textarea type="text" name="message" placeholder="What do you want to say!" id="message-textarea"></textarea>
+
+		</div>
+	</template>
+
+		<script>
+
+		var features = {
+			template: '<div class="full-height inline col-20" id="features">hey</div>'
+		};
+
+		var chatarea = {
+	    template: '#hey',
+	    props:['msgs', 'username'],
+			methods: {
+			  	whoSent: function(sender){
+			  		console.log('sender is: ' + sender);
+			  		if(sender == this.username){
+			  			return true;
+			  		} else {
+			  			return false;
+			  		}
+			  	}
+			}
+		};
+
+	  let vueApp = new Vue ({
+	    el: '#vue-app',
+
+	    data: {
+				registered: false,
+				username:'james',
+				msgs: [
+			    	{sender:'james', theMsg:'hello'},
+			    	{sender:'james', theMsg:'hello'},
+			    	{sender:'sam', theMsg:'hi'},
+			    	{sender:'james', theMsg:'hello'},
+		    	],
+		    names:['harry', 'jim', 'lara', 'kate'],
+				convo:[]
+	    },
+
+			components: {
+					'chat-area': chatarea,
+					'chat-features': features
+			}
+	  })
+
+		let sendData = {
+			username: '',
+			msg:''
+		}
+
+
+
+
+		  let userName = document.getElementById('user-name');
+		  let formUserName = document.getElementById('f-user-name');
+		  let contactsList = document.getElementById('contacts-list');
+		  let userMsg = document.getElementById('message-textarea');
+		  let chatBox = document.getElementById('chat-box__content')
+		  let messageForm = document.getElementById('message-form')
+		  let messagesList = document.getElementById('messages-list');
+
+		  var socket = io();
+		  formUserName.addEventListener('submit', nameSubmit);
+		  userMsg.addEventListener('keyup', checkForSendKey);
+
+
+		  function nameSubmit(e){
+		    e.preventDefault();
+		    vueApp.username = userName.value;
+				vueApp.registered = true;
+				sendData.username = userName.value;
+		    socket.emit('new user', vueApp.username);
+		    userName.setAttribute('disabled', 'true')
+		    //remove event listener for name submission)
+		    formUserName.removeEventListener('submit', nameSubmit);
+		  };
+
+		  function checkForSendKey(e) {
+		    if(e.keyCode == 38){
+		      displayMsg(e);
+		    }
+		    else {
+		      return;
+		    }
+		  }
+
+		  function displayMsg(e){
+		    e.preventDefault();
+		    sendData.msg = userMsg.value;
+		    socket.emit('send message', sendData);
+		    userMsg.value = '';
+		    return false;
+		  };
+
+			function changeConvo(e) {
+				let eValue = e.innerHTML.trim()
+				let room = [vueApp.username, eValue].sort().join('_')
+				let data = {
+					room: room,
+					newConvo: eValue
+				}
+				socket.emit('change conversation', data)
+			}
+
+
+		  //LISTEN FOR NEW MESSAGES
+		  socket.on('new message', function(data){
+				let obj = {
+					sender: data.username,
+					theMsg: data.msg
+				}
+				vueApp.msgs.push(obj);
+		    // Create a <li> node
+		    //let node = document.createElement("li");
+		    // Create a text node
+		    //let textnode = document.createTextNode(data.username +' says: ' + data.msg);
+		     // Append the text to <li>
+		    //node.appendChild(textnode);
+		    //messagesList.appendChild(node);
+		  })
+		  //END
+
+		  //LISTEN FOR NEW/DELETED USERS
+		  socket.on('user list', function(users){
+		    //remove all content from users list
+		    vueApp.names = Object.keys(users);
+		  })
+		  //END
+
+
+		</script>
+
+
+</body>
+
+</html>
